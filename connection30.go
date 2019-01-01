@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -50,10 +51,12 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	{
 		wifi, found := resolved["802-11-wireless"]
 		if !found {
+			fmt.Printf("got from dbus: %v\n", callbody)
 			return retval, fmt.Errorf("Could not resolve dbus \"802-11-wireless\" (ini \"wifi\")")
 		}
 		ssid, found := wifi["ssid"]
 		if !found {
+			fmt.Printf("got from dbus: %v\n", callbody)
 			return retval, fmt.Errorf("Could not resolve ssid")
 		}
 
@@ -62,10 +65,12 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	{
 		connection, found := resolved["connection"]
 		if !found {
+			fmt.Printf("got from dbus: %v\n", callbody)
 			return retval, fmt.Errorf("Could not resolve \"connection\"")
 		}
 		id, found := connection["id"]
 		if !found {
+			fmt.Printf("got from dbus: %v\n", callbody)
 			return retval, fmt.Errorf("Could not resolve \"id\"")
 		}
 		retval.Id = removeQuotes(id.String())
@@ -73,10 +78,12 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	{
 		wifisecurity, found := resolved["802-11-wireless-security"]
 		if !found {
+			fmt.Printf("got from dbus: %v\n", callbody)
 			return retval, fmt.Errorf("Could not resolve dbus \"802-11-wireless-security\" (ini \"wifi-security\")")
 		}
 		keymgmt, found := wifisecurity["key-mgmt"]
 		if !found {
+			fmt.Printf("got from dbus: %v\n", callbody)
 			return retval, fmt.Errorf("Could not resolve key-mgmt")
 		}
 		keymgmt_string := removeQuotes(keymgmt.String())
@@ -94,41 +101,58 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	return retval, nil
 }
 
-func main() {
+func GetNetworkSettings(settingsId int) (NetworkSetting, error) {
 	conn, err := dbus.SystemBus()
 	if err != nil {
-		panic(err)
+		fmt.Printf("ERROR: couldn't connect to system dbus\n")
+		return NetworkSetting{}, err
 	}
-	obj := conn.Object("org.freedesktop.NetworkManager",
-		"/org/freedesktop/NetworkManager/Settings/30")
+	connectionpathstring := fmt.Sprintf("/org/freedesktop/NetworkManager/Settings/%d", settingsId)
+	obj := conn.Object("org.freedesktop.NetworkManager", dbus.ObjectPath(connectionpathstring))
 
-	fmt.Printf("Got Object with path %s\n", obj.Path())
 	settings := obj.Call("org.freedesktop.NetworkManager.Settings.Connection.GetSettings", 0)
 	if e := settings.Err; nil != e {
-		fmt.Printf("ERROR: %v", e)
-		os.Exit(2)
+		fmt.Printf("ERROR: %v\n", e)
+		return NetworkSetting{}, e
 	}
 	networkSettings, err := NewNetworkSetting(settings.Body[0])
 	if nil != err {
-		os.Exit(666)
+		return networkSettings, err
 	}
 
 	if networkSettings.IsPsk {
 		secrets := obj.Call("org.freedesktop.NetworkManager.Settings.Connection.GetSecrets", 0, "802-11-wireless-security")
 		if e := secrets.Err; nil != e {
-			fmt.Printf("ERROR: %v", e)
-			os.Exit(2)
+			return NetworkSetting{}, fmt.Errorf("ERROR: %v", e)
 		}
 		networkSettings.AddNetworkSecrets(secrets.Body[0])
-		fmt.Printf("Network %s: key is %s", networkSettings.Id, networkSettings.Key)
+		fmt.Printf("Network %s: key is %s\n", networkSettings.Id, networkSettings.Key)
+	}
+	return networkSettings, nil
+}
+
+func main() {
+	var outputname string
+	var connectionId int
+	flag.StringVar(&outputname, "o", "network.png", "output filename")
+	flag.IntVar(&connectionId, "i", 30, "network manager connection Id to visualize")
+	flag.Parse()
+	networkSettings, err := GetNetworkSettings(connectionId)
+	if nil != err {
+		fmt.Printf("something went wrong in network setting retrival, %v\n", err)
+		os.Exit(1)
 	}
 
 	qr, err := QRNetworkCode(networkSettings)
 	if nil != err {
-		fmt.Printf("AHHHH, %v\n", err)
-		os.Exit(777)
+		fmt.Printf("something went wrong in qr code generation, %v\n", err)
+		os.Exit(2)
 	}
-	qr.WriteFile(-5, "network.png")
+	err = qr.WriteFile(-5, outputname)
+	if nil != err {
+		fmt.Printf("something went wrong in qr code storing, %v\n", err)
+		os.Exit(3)
+	}
 
 }
 
