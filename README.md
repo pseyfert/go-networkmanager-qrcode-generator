@@ -6,7 +6,7 @@
 golang based cli tools and golang packages to interact with NetworkManager for
 the generation of QR codes that contain WiFi connection information.
 
-# What's there
+## What's there
 
  - Run the tool on a Linux computer where WiFi is managed through
    NetworkManager and generate a QR code for one of the saved connections. If
@@ -15,8 +15,14 @@ the generation of QR codes that contain WiFi connection information.
    that understands network settings and add the exchanged network connection
    information to that device.
 
-# What's missing
+## What's missing (functionality)
 
  - Read QR code -> NetworkManager connection
  - Fixing lots of corner cases (hidden ssids, networks w/o password, handling of unsupported connections)
  - UI for selection of connection
+
+## What's missing (infrastructure)
+
+ - tests
+ - docs
+ - review
