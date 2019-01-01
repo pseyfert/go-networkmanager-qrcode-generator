@@ -29,6 +29,21 @@ func removeQuotes(s string) string {
 	return s
 }
 
+func (ns *NetworkSetting) AddNetworkSecrets(callbody interface{}) error {
+	networkSecrets := callbody.(map[string]map[string]dbus.Variant)
+
+	wifisecurity, found := networkSecrets["802-11-wireless-security"]
+	if !found {
+		return fmt.Errorf("No 802-11-wireless-security block in network Secrets")
+	}
+	networkKey, found := wifisecurity["psk"]
+	if !found {
+		return fmt.Errorf("No key in 802-11-wireless-security block")
+	}
+	ns.Key = removeQuotes(networkKey.String())
+	return nil
+}
+
 func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	var retval NetworkSetting
 	resolved := callbody.(map[string]map[string]dbus.Variant)
@@ -104,10 +119,8 @@ func main() {
 			fmt.Printf("ERROR: %v", e)
 			os.Exit(2)
 		}
-		networkSecrets := secrets.Body[0].(map[string]map[string]dbus.Variant)
-		networkKey := networkSecrets["802-11-wireless-security"]["psk"]
-		networkSettings.Key = removeQuotes(networkKey.String())
-		fmt.Printf("Network %s: key is %s", networkSettings.Id, networkKey.String()[1:len(networkKey.String())-1])
+		networkSettings.AddNetworkSecrets(secrets.Body[0])
+		fmt.Printf("Network %s: key is %s", networkSettings.Id, networkSettings.Key)
 	}
 
 	qr, err := QRNetworkCode(networkSettings)
