@@ -19,10 +19,15 @@
 package qrcode_for_nm_connection
 
 import (
+	"fmt"
+	"os"
+	"strings"
+	"unicode/utf8"
+
 	qrcode "github.com/skip2/go-qrcode"
 )
 
-func QRNetworkCode(ns NetworkSetting) (qrcode.QRCode, error) {
+func NetworkCode(ns NetworkSetting) string {
 	var setupcode string
 	setupcode += "WIFI:"
 	if ns.IsPsk {
@@ -40,6 +45,11 @@ func QRNetworkCode(ns NetworkSetting) (qrcode.QRCode, error) {
 		setupcode += "H:true;"
 	}
 	setupcode += ";"
+	return setupcode
+}
+
+func QRNetworkCode(ns NetworkSetting) (qrcode.QRCode, error) {
+	setupcode := NetworkCode(ns)
 
 	code, err := qrcode.New(setupcode, qrcode.Medium)
 	if nil != err {
@@ -66,3 +76,68 @@ func QRNetworkCode(ns NetworkSetting) (qrcode.QRCode, error) {
 // H 	true 	Optional. True if the network SSID is hidden.
 //
 // Order of fields does not matter. Special characters "", ";", "," and ":" should be escaped with a backslash ("") as in MECARD encoding. For example, if an SSID was literally "foo;bar\baz" (with double quotes part of the SSID name itself) then it would be encoded like: WIFI:S:\"foo\;bar\\baz\";;
+
+// ████ ▄▄▄▄▄ █ ▀▀▄ ▀▀▄  ▀ ▄▄▀█ █ ▄▄▄▄▄ ████
+// ████ █   █ ███ ▄▄█ ▄▄ ▀██▀ █ █ █   █ ████
+// ████ █▄▄▄█ █ ▄▄ █▄▄ █   █ ▀▄██ █▄▄▄█ ████
+// ████▄▄▄▄▄▄▄█ █ ▀ █ ▀ █▄█ █▄▀ █▄▄▄▄▄▄▄████
+// ████  ▄▀▀▄▄▀▄  ██  █▄▄▀ ▄▄▀▄█ ▄ ▄▀▀  ████
+// ████▀ █▄▄ ▄█▄▀█▄█▀█▄▄██ ▄██▀    █ ▀█ ████
+// ████▀▄ ▄▀ ▄▀▄▄█▄ ▄█ ██▄ ▄▄▀ ██ █  █▀ ████
+
+func CompressQR(in string) string {
+	lines := strings.Split(in, "\n")
+	var out string
+	if len(lines[0])%2 == 1 {
+		os.Exit(1337)
+	}
+	for r := 0; r < len(lines)-1; r += 2 {
+		for iu, il, wu, wl := 0, 0, 0, 0; il < len(lines[r+1]) && iu < len(lines[r]); iu, il = iu+wu, il+wl {
+			upperrune, wu := utf8.DecodeRuneInString(lines[r][iu:])
+			upperrune_, wu_ := utf8.DecodeRuneInString(lines[r][iu+wu:])
+			lowerrune, wl := utf8.DecodeRuneInString(lines[r+1][il:])
+			lowerrune_, wl_ := utf8.DecodeRuneInString(lines[r+1][il+wl:])
+			if (lowerrune != lowerrune_) || (upperrune != upperrune_) {
+				panic("consecutive runes should be equal")
+			}
+
+			if upperrune == rune('\u2588') && lowerrune == rune('\u2588') {
+				fmt.Printf("%q", rune('\u2588'))
+				// out = fmt.Sprintf(out, "%s%s", out, rune('\u2588'))
+			}
+			if upperrune == rune('\u0020') && lowerrune == rune('\u0020') {
+				fmt.Printf("%q", rune('\u0020'))
+				// out = fmt.Sprintf(out, "%s%s", out, rune('\u0020'))
+			}
+			if upperrune == rune('\u2588') && lowerrune == rune('\u0020') {
+				fmt.Printf("%q", rune('\u2580'))
+				// out = fmt.Sprintf(out, "%s%s", out, rune('\u2580'))
+			}
+			if upperrune == rune('\u0020') && lowerrune == rune('\u2588') {
+				fmt.Printf("%q", rune('\u2584'))
+				// out = fmt.Sprintf(out, "%s%s", out, rune('\u2584'))
+			}
+
+			iu += wu + wu_
+			il += wl + wl_
+		}
+		fmt.Print("\n")
+		// out += "\n"
+
+		// >>> print('{:x}'.format(ord('▄')))
+		// 2584
+		// >>> print('{:x}'.format(ord('▀')))
+		// 2580
+		// >>> print('{:x}'.format(ord('█')))
+		// 2588
+		// >>> print('{:x}'.format(ord(' ')))
+		// 20
+	}
+
+	// if 1 == (len(lines) % 2) {
+	// 	for c := 0; c < len(lines[len(lines)-1]); c += 2 {
+	// 		out += "▀"
+	// 	}
+	// }
+	return out
+}

@@ -116,12 +116,7 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	return retval, nil
 }
 
-func GetNetworkSettings(settingsId int) (NetworkSetting, error) {
-	conn, err := dbus.SystemBus()
-	if err != nil {
-		fmt.Printf("ERROR: couldn't connect to system dbus\n")
-		return NetworkSetting{}, err
-	}
+func GetNetworkSettings(settingsId int, conn *dbus.Conn) (NetworkSetting, error) {
 	connectionpathstring := fmt.Sprintf("/org/freedesktop/NetworkManager/Settings/%d", settingsId)
 	obj := conn.Object("org.freedesktop.NetworkManager", dbus.ObjectPath(connectionpathstring))
 
