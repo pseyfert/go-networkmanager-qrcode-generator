@@ -24,6 +24,9 @@ import (
 	"strconv"
 
 	"github.com/godbus/dbus"
+	nm2qr "github.com/pseyfert/go-networkmanager-qrcode-generator/qrcode_for_nm_connection"
+	fuzzy "github.com/schollz/closestmatch"
+	// fuzzy "github.com/schollz/closestmatch/levenshtein"
 )
 
 type outernode struct {
@@ -67,10 +70,39 @@ func ConnectionIDs(conn *dbus.Conn) ([]int, error) {
 	return retval[0 : len(n.Nodes)-errors], nil
 }
 
-// networkSettings, err := NewNetworkSetting(settings.Body[0])
-// if nil != err {
-// 	return networkSettings, err
-// }
-//
-// if networkSettings.IsPsk {
-// 	secrets := obj.Call("org.freedesktop.NetworkManager.Settings.Connection.GetSecrets", 0, "802-11-wireless-security")
+func AllConnections(conn *dbus.Conn) ([]nm2qr.NetworkSetting, error) {
+	ids, err := ConnectionIDs(conn)
+
+	if err != nil {
+		return []nm2qr.NetworkSetting{}, err
+	}
+
+	networks := make([]nm2qr.NetworkSetting, 0, len(ids))
+	for _, id := range ids {
+		networkSettings, err := nm2qr.GetNetworkSettings(id, conn)
+		if err == nil {
+			networks = append(networks, networkSettings)
+		}
+	}
+	return networks, nil
+}
+
+func BestMatch(connectionName string, dbusConnection *dbus.Conn) (nm2qr.NetworkSetting, error) {
+	networks, err := AllConnections(dbusConnection)
+	if err != nil {
+		var retval nm2qr.NetworkSetting
+		return retval, err
+	}
+	networkNames := make([]string, 0, 2*len(networks))
+	networkMaps := make(map[string]nm2qr.NetworkSetting)
+	for _, networkSettings := range networks {
+		networkNames = append(networkNames, networkSettings.Id)
+		networkNames = append(networkNames, string(networkSettings.Ssid))
+		networkMaps[string(networkSettings.Ssid)] = networkSettings
+		networkMaps[networkSettings.Id] = networkSettings
+	}
+	cm := fuzzy.New(networkNames, []int{2, 3, 4})
+	best := cm.Closest(connectionName)
+	networkSettings := networkMaps[best]
+	return networkSettings, nil
+}

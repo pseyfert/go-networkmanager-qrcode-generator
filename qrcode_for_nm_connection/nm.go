@@ -66,13 +66,11 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	{
 		wifi, found := resolved["802-11-wireless"]
 		if !found {
-			fmt.Printf("got from dbus: %v\n", callbody)
-			return retval, fmt.Errorf("Could not resolve dbus \"802-11-wireless\" (ini \"wifi\")")
+			return retval, fmt.Errorf("Could not resolve dbus \"802-11-wireless\" (ini \"wifi\"): %v", callbody)
 		}
 		ssid, found := wifi["ssid"]
 		if !found {
-			fmt.Printf("got from dbus: %v\n", callbody)
-			return retval, fmt.Errorf("Could not resolve ssid")
+			return retval, fmt.Errorf("Could not resolve ssid. got from dbus: %v", callbody)
 		}
 
 		retval.Ssid = ssid.Value().([]byte)
@@ -80,26 +78,22 @@ func NewNetworkSetting(callbody interface{}) (NetworkSetting, error) {
 	{
 		connection, found := resolved["connection"]
 		if !found {
-			fmt.Printf("got from dbus: %v\n", callbody)
-			return retval, fmt.Errorf("Could not resolve \"connection\"")
+			return retval, fmt.Errorf("Could not resolve \"connection\". got from dbus: %v", callbody)
 		}
 		id, found := connection["id"]
 		if !found {
-			fmt.Printf("got from dbus: %v\n", callbody)
-			return retval, fmt.Errorf("Could not resolve \"id\"")
+			return retval, fmt.Errorf("Could not resolve \"id\". got from dbus: %v", callbody)
 		}
 		retval.Id = removeQuotes(id.String())
 	}
 	{
 		wifisecurity, found := resolved["802-11-wireless-security"]
 		if !found {
-			fmt.Printf("got from dbus: %v\n", callbody)
-			return retval, fmt.Errorf("Could not resolve dbus \"802-11-wireless-security\" (ini \"wifi-security\")")
+			return retval, fmt.Errorf("Could not resolve dbus \"802-11-wireless-security\" (ini \"wifi-security\"). got from dbus: %v\n", callbody)
 		}
 		keymgmt, found := wifisecurity["key-mgmt"]
 		if !found {
-			fmt.Printf("got from dbus: %v\n", callbody)
-			return retval, fmt.Errorf("Could not resolve key-mgmt")
+			return retval, fmt.Errorf("Could not resolve key-mgmt. got from dbus: %v\n", callbody)
 		}
 		keymgmt_string := removeQuotes(keymgmt.String())
 		if strings.HasPrefix(keymgmt_string, "wpa") {
@@ -122,7 +116,6 @@ func GetNetworkSettings(settingsId int, conn *dbus.Conn) (NetworkSetting, error)
 
 	settings := obj.Call("org.freedesktop.NetworkManager.Settings.Connection.GetSettings", 0)
 	if e := settings.Err; nil != e {
-		fmt.Printf("ERROR: %v\n", e)
 		return NetworkSetting{}, e
 	}
 	networkSettings, err := NewNetworkSetting(settings.Body[0])
@@ -136,7 +129,6 @@ func GetNetworkSettings(settingsId int, conn *dbus.Conn) (NetworkSetting, error)
 			return NetworkSetting{}, fmt.Errorf("ERROR: %v", e)
 		}
 		networkSettings.AddNetworkSecrets(secrets.Body[0])
-		fmt.Printf("Network %s: key is %s\n", networkSettings.Id, networkSettings.Key)
 	}
 	return networkSettings, nil
 }

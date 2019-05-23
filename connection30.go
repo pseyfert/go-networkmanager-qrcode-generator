@@ -33,42 +33,74 @@ func validformat(s string) bool {
 }
 
 func main() {
-	var outputname string
-	var connectionId int
-	var format string
-	flag.StringVar(&outputname, "o", "network.png", "output filename")
-	flag.StringVar(&format, "f", "png", "output format (allowed: png, string, plain)")
-	flag.IntVar(&connectionId, "i", 30, "network manager connection Id to visualize")
-	flag.Parse()
-	if !validformat(format) {
-		fmt.Printf("ERROR: invalid format requested: %s\n", format)
-		os.Exit(8)
-	}
-
 	dbusConnection, err := dbus.SystemBus()
 	if err != nil {
 		fmt.Printf("ERROR: couldn't connect to system dbus\n")
 		os.Exit(9)
 	}
 
-	ids, err := ux.ConnectionIDs(dbusConnection)
-	if nil != err {
-		fmt.Printf("could not obtain list of connections: %v\n", err)
-		fmt.Print("continuing\n")
-	} else {
-		found := false
-		for _, id := range ids {
-			if id == connectionId {
-				found = true
-				break
-			}
+	var outputname string
+	var connectionId int
+	var connectionName string
+	var format string
+	var exactMatch bool
+	var listConnections bool
+	flag.StringVar(&outputname, "o", "network.png", "output filename")
+	flag.StringVar(&format, "f", "png", "output format (allowed: png, string, plain)")
+	flag.IntVar(&connectionId, "i", -1, "network manager connection Id to visualize")
+	flag.StringVar(&connectionName, "n", "", "network manager connection name to visualize")
+	flag.BoolVar(&exactMatch, "e", false, "matches by name must be exact (fuzzy by default)")
+	flag.BoolVar(&listConnections, "l", false, "list connection names and quit")
+
+	flag.Parse()
+	if !validformat(format) {
+		fmt.Printf("ERROR: invalid format requested: %s\n", format)
+		os.Exit(8)
+	}
+	if listConnections {
+		fmt.Printf("the following connections are known:\n")
+		cons, err := ux.AllConnections(dbusConnection)
+		if err != nil {
+			fmt.Printf("ERROR: %v\n", err)
+			os.Exit(8)
 		}
-		if !found {
-			fmt.Printf("%d is not in the list of known connections. trying anyway.\n", connectionId)
+		for _, con := range cons {
+			fmt.Printf("%s:\tSSID %s\n", con.Id, con.Ssid)
+		}
+		os.Exit(0)
+	}
+	if connectionId < 0 && connectionName == "" {
+		fmt.Printf("ERROR: specify either a connection ID or a connection name")
+		os.Exit(7)
+	}
+
+	var networkSettings nm2qr.NetworkSetting
+	if connectionId >= 0 {
+		ids, err := ux.ConnectionIDs(dbusConnection)
+		if nil != err {
+			fmt.Printf("could not obtain list of connections: %v\n", err)
+			fmt.Print("continuing\n")
+		} else {
+			found := false
+			for _, id := range ids {
+				if id == connectionId {
+					found = true
+					break
+				}
+			}
+			if !found {
+				fmt.Printf("%d is not in the list of known connections. trying anyway.\n", connectionId)
+			}
+			networkSettings, err = nm2qr.GetNetworkSettings(connectionId, dbusConnection)
+		}
+	} else {
+		networkSettings, err = ux.BestMatch(connectionName, dbusConnection)
+		if exactMatch && !(networkSettings.Id == connectionName || string(networkSettings.Ssid) == connectionName) {
+			fmt.Printf("%s is not in the list of known connections.\n", connectionName)
+			os.Exit(3)
 		}
 	}
 
-	networkSettings, err := nm2qr.GetNetworkSettings(connectionId, dbusConnection)
 	if nil != err {
 		fmt.Printf("something went wrong in network setting retrival, %v\n", err)
 		os.Exit(1)
