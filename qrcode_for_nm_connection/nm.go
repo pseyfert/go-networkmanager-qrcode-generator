@@ -32,6 +32,7 @@ type NetworkSetting struct {
 	IsPsk    bool
 	IsHidden bool
 	Key      string
+	DbusId   int
 	// contents from dbus are:
 	// 802-11-wireless: map[mac-address:@ay [0xa0, 0x88, …] mac-address-blacklist:@as [] mode:"infrastructure" security:"802-11-wireless-security" ssid:@ay [0x50, …]]
 	// connection: map[permissions:["user:…"] type:"802-11-wireless" uuid:"c3…" id:"P…"]
@@ -119,6 +120,7 @@ func GetNetworkSettings(settingsId int, conn *dbus.Conn) (NetworkSetting, error)
 		return NetworkSetting{}, e
 	}
 	networkSettings, err := NewNetworkSetting(settings.Body[0])
+	networkSettings.DbusId = settingsId
 	if nil != err {
 		return networkSettings, err
 	}
