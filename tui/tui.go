@@ -29,6 +29,7 @@ import (
 	"github.com/godbus/dbus"
 	nm2qr "github.com/pseyfert/go-networkmanager-qrcode-generator/qrcode_for_nm_connection"
 	ux "github.com/pseyfert/go-networkmanager-qrcode-generator/ux"
+	"github.com/skip2/go-qrcode"
 )
 
 func dbusmap(cons []nm2qr.NetworkSetting) map[int]nm2qr.NetworkSetting {
@@ -86,7 +87,12 @@ func main() {
 	code.SetRect(30, 0, 90, 35)
 	code.Title = "QR code"
 	code.RowSeparator = false
-	code.Rows = [][]string{[]string{"QR code to appear here"}}
+	code.Rows = [][]string{[]string{"QR code to appear here",
+		"USAGE:",
+		"q, ^C, ESC: quit",
+		"RET:        generate code",
+		"s:          save code as png (/tmp/nm2qr_<name>.png)",
+	}}
 
 	ui.Render(networklist, code)
 
@@ -94,8 +100,17 @@ func main() {
 	uiEvents := ui.PollEvents()
 	for {
 		e := <-uiEvents
+		getqr := func() (qrcode.QRCode, string) {
+			sel := networklist.SelectedRow
+			id := sortedkeys[sel]
+			qr, err := nm2qr.QRNetworkCode(conmap[id])
+			if nil != err {
+				log.Fatalf("something went wrong in qr code generation, %v", err)
+			}
+			return qr, conmap[id].Id
+		}
 		switch e.ID {
-		case "q", "<C-c>":
+		case "q", "<C-c>", "<Escape>":
 			return
 		case "j", "<Down>":
 			networklist.ScrollDown()
@@ -119,12 +134,7 @@ func main() {
 			networklist.ScrollBottom()
 		case "<Enter>":
 			{
-				sel := networklist.SelectedRow
-				id := sortedkeys[sel]
-				qr, err := nm2qr.QRNetworkCode(conmap[id])
-				if nil != err {
-					log.Fatalf("something went wrong in qr code generation, %v", err)
-				}
+				qr, title := getqr()
 				qrcode := qr.ToSmallString(false)
 				rows := strings.Split(qrcode, "\n")
 				rrows := make([][]string, 0, len(rows))
@@ -133,8 +143,16 @@ func main() {
 				}
 
 				code.Rows = rrows
-				code.Title = conmap[id].Id
+				code.Title = title
 				code.TextStyle = ui.NewStyle(ui.ColorWhite, ui.ColorBlack)
+			}
+		case "s":
+			{
+				qr, title := getqr()
+				fname := fmt.Sprintf("/tmp/nm2qr_%s.png", title)
+				qr.WriteFile(-5, fname)
+
+				code.Rows = [][]string{[]string{fmt.Sprintf("saved as %s", fname)}}
 			}
 		}
 
