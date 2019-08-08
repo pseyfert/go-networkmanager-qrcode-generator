@@ -87,12 +87,13 @@ func main() {
 	code.SetRect(30, 0, 90, 35)
 	code.Title = "QR code"
 	code.RowSeparator = false
-	code.Rows = [][]string{[]string{"QR code to appear here",
-		"USAGE:",
-		"q, ^C, ESC: quit",
-		"RET:        generate code",
-		"s:          save code as png (/tmp/nm2qr_<name>.png)",
-	}}
+	code.Rows = [][]string{[]string{"QR code to appear here"},
+		[]string{"USAGE:"},
+		[]string{"q, ^C, ESC: quit"},
+		[]string{"RET:        generate code"},
+		[]string{"s:          save code as png (/tmp/nm2qr_<name>.png)"},
+	}
+	code.TextStyle = ui.NewStyle(ui.ColorBlue)
 
 	ui.Render(networklist, code)
 
@@ -153,6 +154,7 @@ func main() {
 				qr.WriteFile(-5, fname)
 
 				code.Rows = [][]string{[]string{fmt.Sprintf("saved as %s", fname)}}
+				code.TextStyle = ui.NewStyle(ui.ColorBlue)
 			}
 		}
 
